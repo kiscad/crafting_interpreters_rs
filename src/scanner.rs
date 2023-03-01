@@ -26,7 +26,7 @@ impl Scanner {
                 tokens.push(tkn);
             }
         }
-        tokens.push(Token::new(TokenType::Eof, String::from(""), Literal::None, 0));
+        tokens.push(Token::new(TokenType::Eof, String::from(""), Literal::Null, 0));
         tokens
     }
 
@@ -37,73 +37,17 @@ impl Scanner {
         use TokenType::*;
         let new_single_char_token = |t| Some(
             Token::new(t, format!("{}", chars[self.start]),
-            Literal::None, self.line)
+            Literal::Null, self.line)
         );
         let new_two_char_token = |t| Some(
             Token::new(t,
                 (&chars[self.start..self.start+2]).iter().collect(),
-                Literal::None, self.line)
+                Literal::Null, self.line)
         );
         let skip_comment = |mut cur| loop { match chars.get(cur) {
                 Some('\n') | None => break cur, // end of comment or file
                 _ => cur += 1,
         }};
-        let new_string_literal_token = |mut line, start, mut cur| {
-            loop { match chars.get(cur) {
-                Some('"') => {
-                    cur += 1;
-                    let lexeme: String = (&chars[start..cur]).iter().collect();
-                    let string = (&chars[start + 1 .. cur - 1]).iter().collect();
-                    break (line, cur,
-                        Some(Token::new(String_,
-                            lexeme,
-                            Literal::Str(string),
-                            line)))
-                },
-                None => { error(line, "Unterminated string."); break (line, cur, None) }
-                Some('\n') => { line += 1; cur += 1; },
-                _ => cur += 1,
-            }}
-        };
-        let new_number_literal_token = |line, start, mut cur| {
-            loop { match chars.get(cur) {
-                Some(&d) if d >= '0' && d <= '9' => cur += 1,
-                Some('.') => match chars.get(cur + 1) {
-                    Some(&d) if d >= '0' && d <= '9' => cur += 1,
-                    _ => { error(line, "Invalid literal number"); break (cur + 1, None) }
-                }
-                _ => {
-                    let lexeme: String = (&chars[start..cur]).iter().collect();
-                    let num: f64 = lexeme.parse().unwrap();
-                    let token = Token::new(Number, lexeme, Literal::Num(num), line);
-                    break (cur, Some(token))
-                }
-            }}
-        };
-        let new_identifier_or_keyword_token = |line, start, mut cur| loop {
-            if let Some(&c) = chars.get(cur) {
-                match c {
-                    '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' => cur += 1,
-                    _ => {
-                        let lexeme: String = (&chars[start..cur]).iter().collect();
-                        let type_ = Scanner::eval_identifier_token_type(&lexeme);
-                        let tkn = Token::new(
-                            type_,
-                            lexeme,
-                            Literal::None,
-                            line);
-                        break (cur, Some(tkn))
-                    }
-                }
-            } else {
-                let tkn = Token::new(
-                    Identifier,
-                    (&chars[start..cur]).iter().collect(),
-                    Literal::None,
-                    line);
-                break (cur, Some(tkn))
-            }
-        };
 
         match c {
             '(' => new_single_char_token(LeftParen),
@@ -142,26 +86,80 @@ impl Scanner {
             }
             ' ' | '\t' | '\r' => None,
             '\n' => { self.line += 1; None }
-            '"' => {
-                let (line, cur, tkn) = new_string_literal_token(self.line, self.start, self.current);
-                self.line = line;
-                self.current = cur;
-                tkn
-            }
-            '0'..='9' => {
-                let (cur, tkn) = new_number_literal_token(self.line, self.start, self.current);
-                self.current = cur;
-                tkn
-            }
-            '_' | 'a'..='z' | 'A'..='Z' => {
-                let (cur, tkn) = new_identifier_or_keyword_token(self.line, self.start, self.current);
-                self.current = cur;
-                tkn
-            }
+            '"' => self.new_string_literal_token(&chars),
+            '0'..='9' => self.new_number_literal_token_(&chars),
+            '_' | 'a'..='z' | 'A'..='Z' => self.new_identifier_or_keyword_token(&chars),
             _ => { error(self.line, "Unexpected character."); None }
         }
+    }
 
-        
+    fn new_string_literal_token(&mut self, chars: &[char]) -> Option<Token> {
+        loop { match chars.get(self.current) {
+            Some('"') => {
+                self.current += 1;
+                let lexeme: String = (&chars[self.start..self.current]).iter().collect();
+                let string = (&chars[self.start + 1 .. self.current - 1]).iter().collect();
+                break Some(Token::new(TokenType::String_,
+                        lexeme,
+                        Literal::Str(string),
+                        self.line))
+            },
+            None => {
+                error(self.line, "Unterminated string.");
+                break None
+            }
+            Some('\n') => {
+                self.line += 1;
+                self.current += 1;
+            }
+            _ => self.current += 1,
+        }}
+    }
+
+    fn new_number_literal_token_(&mut self, chars: &[char]) -> Option<Token> {
+        loop { match chars.get(self.current) {
+            Some(&d) if d >= '0' && d <= '9' => self.current += 1,
+            Some('.') => match chars.get(self.current + 1) {
+                Some(&d) if d >= '0' && d <= '9' => self.current += 1,
+                _ => {
+                    error(self.line, "Invalid literal number");
+                    break None
+                }
+            }
+            _ => {
+                let lexeme: String = (&chars[self.start..self.current]).iter().collect();
+                let num: f64 = lexeme.parse().unwrap();
+                let token = Token::new(TokenType::Number, lexeme, Literal::Num(num), self.line);
+                break Some(token)
+            }
+        }}
+    }
+
+    fn new_identifier_or_keyword_token(&mut self, chars: &[char]) -> Option<Token> {
+        loop {
+            if let Some(&c) = chars.get(self.current) {
+                match c {
+                    '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' => self.current += 1,
+                    _ => {
+                        let lexeme: String = (&chars[self.start..self.current]).iter().collect();
+                        let type_ = Scanner::eval_identifier_token_type(&lexeme);
+                        let tkn = Token::new(
+                            type_,
+                            lexeme,
+                            Literal::Null,
+                            self.line);
+                        break Some(tkn)
+                    }
+                }
+            } else {
+                let tkn = Token::new(
+                    TokenType::Identifier,
+                    (&chars[self.start..self.current]).iter().collect(),
+                    Literal::Null,
+                    self.line);
+                break Some(tkn)
+            }
+        }
     }
 
     fn eval_identifier_token_type(lexeme: &str) -> TokenType {

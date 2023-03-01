@@ -24,7 +24,7 @@ pub enum TokenType {
 pub enum Literal {
     Num(f64),
     Str(String),
-    None,
+    Null,
 }
 
 #[derive(Debug)]
