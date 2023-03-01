@@ -142,14 +142,16 @@ impl Scanner {
                 }
             }}
         };
-        let new_identifier_token = |line, start, mut cur| loop {
+        let new_identifier_or_keyword_token = |line, start, mut cur| loop {
             if let Some(&c) = chars.get(cur) {
                 match c {
                     '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' => cur += 1,
                     _ => {
+                        let lexeme: String = (&chars[start..cur]).iter().collect();
+                        let type_ = Scanner::eval_identifier_token_type(&lexeme);
                         let tkn = Token::new(
-                            Identifier,
-                            (&chars[start..cur]).iter().collect(),
+                            type_,
+                            lexeme,
                             Literal::None,
                             line);
                         break (cur, Some(tkn))
@@ -214,7 +216,7 @@ impl Scanner {
                 tkn
             }
             '_' | 'a'..='z' | 'A'..='Z' => {
-                let (cur, tkn) = new_identifier_token(self.line, self.start, self.current);
+                let (cur, tkn) = new_identifier_or_keyword_token(self.line, self.start, self.current);
                 self.current = cur;
                 tkn
             }
@@ -222,6 +224,29 @@ impl Scanner {
         }
 
         
+    }
+
+    fn eval_identifier_token_type(lexeme: &str) -> TokenType {
+        use TokenType::*;
+        match lexeme {
+            "and" => And,
+            "class" => Class,
+            "else" => Else,
+            "false" => False,
+            "for" => For,
+            "fun" => Fun,
+            "if" => If,
+            "nil" => Nil,
+            "or" => Or,
+            "print" => Print,
+            "return" => Return,
+            "super" => Super,
+            "this" => This,
+            "true" => True,
+            "var" => Var,
+            "while" => While,
+            _ => Identifier
+        }
     }
 }
 
@@ -276,14 +301,6 @@ enum TokenType {
     Print, Return, Super, This, True, Var, While,
     Eof,
 }
-
-
-
-
-
-
-
-
 
 
 fn error(line: usize, message: &str) {
