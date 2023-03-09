@@ -58,7 +58,9 @@ fn run(src: &str) {
     let mut scanner = Scanner::new();
     let tokens = scanner.scan_tokens(src);
 
+    let (expr, tokens) = lox::parser2::expression(&tokens).unwrap();
+    println!("{}", expr.format_ast());
     for token in tokens {
-        println!("{token:?}");
+        println!("{token}");
     }
 }

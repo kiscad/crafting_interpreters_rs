@@ -48,6 +48,6 @@ impl Token {
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?} {} {:?}", self.type_, self.lexeme, self.literal)
+        write!(f, "({:?} {})", self.type_, self.lexeme)
     }
 }
