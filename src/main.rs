@@ -12,7 +12,7 @@ fn main() {
     let args: Vec<_> = env::args().skip(1).collect();
     
     if args.len() > 1 {
-        println!("UsafeL jlox [script]");
+        println!("Usage: jlox [script]");
         process::exit(64);
     } else if args.len() == 1 {
         run_file(&args[0]).unwrap();
@@ -24,7 +24,7 @@ fn main() {
 fn run_file(fname: &str) -> Result<(), Error>{
     let path = PathBuf::from(fname);
     let src = fs::read_to_string(path)?;
-    run(src);
+    run(&src);
 
     unsafe { if G_HAD_ERROR {
         process::exit(65);
@@ -46,14 +46,14 @@ fn run_promt() -> Result<(), Error>{
             break
         }
 
-        run(line);
+        run(&line);
 
         unsafe { G_HAD_ERROR = false; }
     }
     Ok(())
 }
 
-fn run(src: String) {
+fn run(src: &str) {
     print!("{src}");
     let mut scanner = Scanner::new();
     let tokens = scanner.scan_tokens(src);
