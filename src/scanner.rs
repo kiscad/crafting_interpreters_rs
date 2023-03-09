@@ -1,5 +1,5 @@
 use super::token::{Literal, Token, TokenType};
-use super::utils::error;
+use super::utils;
 
 pub struct Scanner {
     start: usize,
@@ -16,7 +16,7 @@ impl Scanner {
         }
     }
 
-    pub fn scan_tokens(&mut self, src: String) -> Vec<Token> {
+    pub fn scan_tokens(&mut self, src: &str) -> Vec<Token> {
         let mut tokens = vec![];
         let chars: Vec<char> = src.chars().collect();
 
@@ -41,7 +41,7 @@ impl Scanner {
         );
         let new_two_char_token = |t| Some(
             Token::new(t,
-                (&chars[self.start..self.start+2]).iter().collect(),
+                chars[self.start..self.start+2].iter().collect(),
                 Literal::Null, self.line)
         );
         let skip_comment = |mut cur| loop { match chars.get(cur) {
@@ -89,7 +89,7 @@ impl Scanner {
             '"' => self.new_string_literal_token(&chars),
             '0'..='9' => self.new_number_literal_token_(&chars),
             '_' | 'a'..='z' | 'A'..='Z' => self.new_identifier_or_keyword_token(&chars),
-            _ => { error(self.line, "Unexpected character."); None }
+            _ => { utils::error(self.line, "Unexpected character."); None }
         }
     }
 
@@ -97,15 +97,15 @@ impl Scanner {
         loop { match chars.get(self.current) {
             Some('"') => {
                 self.current += 1;
-                let lexeme: String = (&chars[self.start..self.current]).iter().collect();
-                let string = (&chars[self.start + 1 .. self.current - 1]).iter().collect();
+                let lexeme: String = chars[self.start..self.current].iter().collect();
+                let string = chars[self.start + 1 .. self.current - 1].iter().collect();
                 break Some(Token::new(TokenType::String_,
                         lexeme,
                         Literal::Str(string),
                         self.line))
             },
             None => {
-                error(self.line, "Unterminated string.");
+                utils::error(self.line, "Unterminated string.");
                 break None
             }
             Some('\n') => {
@@ -122,12 +122,12 @@ impl Scanner {
             Some('.') => match chars.get(self.current + 1) {
                 Some(&d) if d >= '0' && d <= '9' => self.current += 1,
                 _ => {
-                    error(self.line, "Invalid literal number");
+                    utils::error(self.line, "Invalid literal number");
                     break None
                 }
             }
             _ => {
-                let lexeme: String = (&chars[self.start..self.current]).iter().collect();
+                let lexeme: String =chars[self.start..self.current].iter().collect();
                 let num: f64 = lexeme.parse().unwrap();
                 let token = Token::new(TokenType::Number, lexeme, Literal::Num(num), self.line);
                 break Some(token)
@@ -141,7 +141,7 @@ impl Scanner {
                 match c {
                     '_' | 'a'..='z' | 'A'..='Z' | '0'..='9' => self.current += 1,
                     _ => {
-                        let lexeme: String = (&chars[self.start..self.current]).iter().collect();
+                        let lexeme: String = chars[self.start..self.current].iter().collect();
                         let type_ = Scanner::eval_identifier_token_type(&lexeme);
                         let tkn = Token::new(
                             type_,
@@ -154,7 +154,7 @@ impl Scanner {
             } else {
                 let tkn = Token::new(
                     TokenType::Identifier,
-                    (&chars[self.start..self.current]).iter().collect(),
+                    chars[self.start..self.current].iter().collect(),
                     Literal::Null,
                     self.line);
                 break Some(tkn)
