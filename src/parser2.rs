@@ -4,7 +4,11 @@ use thiserror::Error;
 
 pub type PResult<T> = Result<T, ParseError>;
 
-pub fn expression(tokens: &[Token]) -> PResult<(Expr, &[Token])> {
+pub fn parse(tokens: &[Token]) -> PResult<(Expr, &[Token])> {
+    expression(tokens)
+}
+
+fn expression(tokens: &[Token]) -> PResult<(Expr, &[Token])> {
     equality(tokens)
 }
 
@@ -119,6 +123,18 @@ fn primary(tokens: &[Token]) -> PResult<(Expr, &[Token])> {
         _ => Err(ParseError::new(
             token.line, token.clone(), "Cannot parse this token.".into())),
     }
+}
+
+pub fn synchronize(tokens: &[Token]) -> &[Token] {
+    use TokenType::{Class, Fun, Var, For, If, While, Print, Return, Eof, Semicolon};
+    for (i, tkn) in tokens.iter().enumerate() {
+        match tkn.type_ {
+            Class | Fun | Var | For | If | While | Print | Return | Eof => return &tokens[i..],
+            Semicolon => return &tokens[i+1..],
+            _ => (),
+        }
+    }
+    &tokens[0..0]
 }
 
 #[derive(Error, Debug)]
