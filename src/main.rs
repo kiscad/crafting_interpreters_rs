@@ -7,7 +7,6 @@ use anyhow::Error;
 
 use lox::scanner::Scanner;
 use lox::G_HAD_ERROR;
-use lox::token::TokenType;
 
 fn main() {
     let args: Vec<_> = env::args().skip(1).collect();
@@ -59,19 +58,7 @@ fn run(src: &str) {
     let mut scanner = Scanner::new();
     let tokens = scanner.scan_tokens(src);
 
-    let mut tokens = &tokens[..];
-    while tokens[0].type_ != TokenType::Eof {
-        let expr = match lox::parser2::parse(tokens) {
-            Ok((expr, tkns)) => {
-                tokens = tkns;
-                expr
-            }
-            Err(e) => {
-                println!("{e}");
-                tokens = lox::parser2::synchronize(tokens);
-                continue;
-            }
-        };
-        println!("{}", expr.format_ast());
-    }
+    let tokens = &tokens[..];
+    let (expr, _) = lox::parser2::parse(tokens).unwrap();
+    println!("{}", expr.format_ast());
 }

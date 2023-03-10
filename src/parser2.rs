@@ -5,7 +5,32 @@ use thiserror::Error;
 pub type PResult<T> = Result<T, ParseError>;
 
 pub fn parse(tokens: &[Token]) -> PResult<(Expr, &[Token])> {
-    expression(tokens)
+    use TokenType::{Eof, Semicolon};
+    match expression(tokens) {
+        Err(e) => {
+            println!("{e}");
+            let mut tokens = synchronize(tokens);
+            while tokens[0].type_ != Eof {
+                match expression(tokens) {
+                    Err(e) => {
+                        println!("{e}");
+                        tokens = synchronize(tokens);
+                    }
+                    ok => return ok,
+                }
+            }
+            Err(ParseError::new(
+                tokens[0].line, tokens[0].clone(), "No invalid expression".into()))
+        }
+        Ok((expr, tokens)) => {
+            let token = &tokens[0];
+            match token.type_ {
+                Eof | Semicolon => Ok((expr, tokens)),
+                _ => Err(ParseError::new(
+                    token.line, token.clone(), "Cannot parse this token.".into())),
+            }
+        }
+    }
 }
 
 fn expression(tokens: &[Token]) -> PResult<(Expr, &[Token])> {
@@ -134,7 +159,8 @@ pub fn synchronize(tokens: &[Token]) -> &[Token] {
             _ => (),
         }
     }
-    &tokens[0..0]
+    // &tokens[0..0]
+    unreachable!()
 }
 
 #[derive(Error, Debug)]
